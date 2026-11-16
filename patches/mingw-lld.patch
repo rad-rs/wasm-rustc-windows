@@ -1,0 +1,33 @@
+diff --git a/compiler/rustc_llvm/build.rs b/compiler/rustc_llvm/build.rs
+index 8e26e4a671c..64367aa2610 100644
+--- a/compiler/rustc_llvm/build.rs
++++ b/compiler/rustc_llvm/build.rs
+@@ -327,6 +327,11 @@ fn main() {
+     }
+ 
+     println!("cargo:rustc-link-lib=static=LLVMOption");
++    println!("cargo:rustc-link-lib=static=lldMinGW");
++    println!("cargo:rustc-link-lib=static=lldCOFF");
++    println!("cargo:rustc-link-lib=static=LLVMWindowsDriver");
++    println!("cargo:rustc-link-lib=static=LLVMLibDriver");
++    println!("cargo:rustc-link-lib=static=LLVMWindowsManifest");
+     println!("cargo:rustc-link-lib=static=lldCommon");
+     println!("cargo:rustc-link-lib=static=lldELF");
+     println!("cargo:rustc-link-lib=static=lldWasm");
+diff --git a/compiler/rustc_llvm/llvm-wrapper/LLD.cpp b/compiler/rustc_llvm/llvm-wrapper/LLD.cpp
+index 182ea9534b3..d5449a3b44d 100644
+--- a/compiler/rustc_llvm/llvm-wrapper/LLD.cpp
++++ b/compiler/rustc_llvm/llvm-wrapper/LLD.cpp
+@@ -2,10 +2,11 @@
+ 
+ LLD_HAS_DRIVER(elf)
+ LLD_HAS_DRIVER(wasm)
++LLD_HAS_DRIVER(mingw)
+ 
+ extern "C" int RustRunLld(int argc, char **argv) {
+     llvm::ArrayRef<const char *> args(argv, argv + argc);
+     auto r = lld::lldMain(args, llvm::outs(), llvm::errs(),
+-                         {{lld::Gnu, &lld::elf::link}, {lld::Wasm, &lld::wasm::link}});
++                         {{lld::Gnu, &lld::elf::link}, {lld::Wasm, &lld::wasm::link}, {lld::MinGW, &lld::mingw::link}});
+     return r.retCode;
+ }
