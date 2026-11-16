@@ -6,16 +6,19 @@
 #
 #   RAD_CRATES=/path/to/rad/crates scripts/test-gui.sh
 #   TARGET=i686-pc-windows-gnu RAD_CRATES=... scripts/test-gui.sh   # 32-bit
+#   TARGET=aarch64-pc-windows-gnullvm RAD_CRATES=... scripts/test-gui.sh   # ARM64 (link + header check only)
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=env.sh
 . "$here/env.sh"
 CR="${RAD_CRATES:?set RAD_CRATES to the crates/ directory of a rad-rs/rad checkout}"
-need "$RUSTC_WASM" "$WINLIB" "$WASMTIME" "$CR/rad-core/src/lib.rs" "$CR/rad-demo/src/form1.rs" "$MINGW_LIB/crt2.o" "$MINGW_GCC/libgcc_eh.a"
+need "$RUSTC_WASM" "$WINLIB" "$WASMTIME" "$CR/rad-core/src/lib.rs" "$CR/rad-demo/src/form1.rs" "$MINGW_LIB/crt2.o"
+[ -z "$MINGW_GCC" ] || need "$MINGW_GCC/libgcc_eh.a"
 
 T="$WORK/test-gui"
 rm -rf "$T"; mkdir -p "$T/app/rad_core" "$T/mingw"
-cp "$MINGW_LIB"/*.a "$MINGW_LIB/crt2.o" "$MINGW_GCC"/*.a "$T/mingw/"
+cp "$MINGW_LIB"/*.a "$MINGW_LIB/crt2.o" "$T/mingw/"
+[ -z "$MINGW_GCC" ] || cp "$MINGW_GCC"/*.a "$T/mingw/"
 
 # Mount tree: rad_core.rs + rad_core/*.rs ("crate::" gains one segment as a
 # submodule), the Win32 backend and the form as siblings of main.rs.
@@ -39,6 +42,4 @@ cp "$here/../config/gui-main.rs" "$T/app/main.rs"
   -C linker-flavor=ld.lld -C link-arg=/mingw/crt2.o -C link-arg=-L/mingw \
   -C link-arg=--subsystem=windows -o /work/out.exe
 
-file "$T/app/out.exe" | tee "$T/file.txt"
-case "$TARGET" in i686*) want='PE32 executable.*(GUI)' ;; *) want='PE32+ executable.*(GUI)' ;; esac
-grep -q "$want" "$T/file.txt" && echo "OK: $T/app/out.exe"
+check_pe "$T/app/out.exe" GUI

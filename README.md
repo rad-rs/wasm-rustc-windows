@@ -1,6 +1,6 @@
 # wasm-rustc-windows
 
-Recipe for building a **WebAssembly-hosted `rustc` that compiles and links Windows executables** (`x86_64-pc-windows-gnu` and `i686-pc-windows-gnu`) using LLD inside the compiler process, and for running it under wasmtime or in a browser.
+Recipe for building a **WebAssembly-hosted `rustc` that compiles and links Windows executables** (`x86_64-pc-windows-gnu`, `i686-pc-windows-gnu` and ARM64 `aarch64-pc-windows-gnullvm`) using LLD inside the compiler process, and for running it under wasmtime or in a browser.
 
 It builds [`rad-rs/rust-wasm`](https://github.com/rad-rs/rust-wasm), branch `wasm-host`: 11 commits on top of current `rust-lang/rust` `main` (base `5fb8a16f`, rustc 1.102.0-dev, 2026-11-16). Its LLVM submodule is [`rad-rs/llvm-project`](https://github.com/rad-rs/llvm-project), branch `wasi-host-support`. The result is used by the [RAD designer](https://github.com/rad-rs/rad), which builds Windows `.exe` files in the browser.
 
@@ -15,6 +15,7 @@ Verified (on one machine: Debian 13 on WSL2, 15 GB RAM visible to Linux, wasi-sd
   - a console hello-world: a PE32+ console exe that prints its message and exits 0 on Windows;
   - the [rad](https://github.com/rad-rs/rad) all-controls demo (all 8 widget types): a PE32+ GUI exe that opens a window titled `All controls demo` and closes cleanly (exit 0);
   - the same hello-world and all-controls demo for **`i686-pc-windows-gnu`** (`TARGET=i686-pc-windows-gnu`): PE32 (Intel i386) exes that run on 64-bit Windows under WoW64. The hello-world prints its message and exits 0; the GUI demo opens `All controls demo` and closes cleanly. Linking worked with the same compiler and flags, with no compiler change.
+- **ARM64 (`aarch64-pc-windows-gnullvm`)**: the hello-world and the all-controls demo link into PE32+ executables with machine type `0xAA64` (checked with `file`, a header read, and `llvm-objdump -f -p` from llvm-mingw: well-formed ARM64 COFF, sensible entry point, GUI/console subsystem as requested, imports from `KERNEL32`, `USER32`, `GDI32`, `COMCTL32` and the UCRT `api-ms-win-crt-*` DLLs). The standard library built in about 10 minutes with the existing compiler and no compiler or `rad-backend-win32` change. **These executables were never run**: the machine used here is x86-64, which cannot execute ARM64 binaries, and no emulator was available. Whether they actually work on ARM64 Windows is unknown.
 - The RAD designer builds an `.exe` in the browser with this compiler (about 9-10 s, against about 6 s with the older toolchain it replaced).
 - `x.py test tidy` and `x.py fmt --check` passed on the branch. The binary under test was built just before a formatting-only fixup (identical content otherwise).
 - Every script here was checked with `bash -n`; `build.sh config`, `assemble-designer-toolchain.sh`, `test-hello.sh` and `test-gui.sh` were run against the existing build (see below). The LLVM submodule commit is fetchable by SHA.
@@ -35,6 +36,8 @@ sudo apt-get install build-essential cmake ninja-build pkg-config python3 git cu
 ```
 
 (`gcc-mingw-w64-i686` is only needed for the 32-bit target.)
+
+The ARM64 target needs [llvm-mingw](https://github.com/mstorsjo/llvm-mingw) (UCRT flavour, MIT-licensed; its LLVM and mingw-w64 parts have their own licences, see `LICENSE.TXT` in the archive) for its MinGW runtime (`crt2.o`, import libraries, `libunwind`) and the clang wrappers bootstrap uses to build the standard library's C parts. `scripts/get-llvm-mingw.sh` downloads release 20261104 (about 80 MB, 620 MB unpacked) into `$WORK/llvm-mingw`; `scripts/build.sh` runs it for you. Nothing from llvm-mingw is redistributed by this repository. The UCRT flavour means ARM64 executables need **Windows 10 or later**.
 
 `x86_64-w64-mingw32-g++` is not installed by this and is not needed (bootstrap prints a harmless "compiler family detection failed" warning). Plan for about **18 GB** of disk for the build directory (the `dist/` sysroot is about 0.5 GB) and about 15 GB of RAM.
 
@@ -69,9 +72,9 @@ wasmtime run -Sthreads=y -Spreview2=n \
   -o /work/hello.exe
 ```
 
-`scripts/test-hello.sh` does exactly this and checks the result is a PE32+ executable. For 32-bit, run it with `TARGET=i686-pc-windows-gnu` (the check then expects PE32); `env.sh` picks the matching MinGW directories and the sysroot that holds that target's standard library. `RAD_CRATES=<rad>/crates scripts/test-gui.sh` builds the rad all-controls demo into a GUI exe (add `-C link-arg=--subsystem=windows`, as the script does, so it has no console window).
+`scripts/test-hello.sh` does exactly this and checks the result is a PE32+ executable (it checks the PE header's Machine field too). For 32-bit, run it with `TARGET=i686-pc-windows-gnu` (the check then expects PE32); for ARM64, run `scripts/get-llvm-mingw.sh` and then `TARGET=aarch64-pc-windows-gnullvm scripts/test-hello.sh`, which only checks that it links and that the header says ARM64 (it cannot run the result); `env.sh` picks the matching MinGW directories and the sysroot that holds that target's standard library. `RAD_CRATES=<rad>/crates scripts/test-gui.sh` builds the rad all-controls demo into a GUI exe (add `-C link-arg=--subsystem=windows`, as the script does, so it has no console window).
 
-The Windows sysroot is `dist/lib/rustlib/x86_64-pc-windows-gnu/lib/` (it contains `rsbegin.o`, `rsend.o` and the `.rlib`/`.rmeta` pairs). The MinGW runtime comes from Debian's `gcc-mingw-w64-x86-64`: `crt2.o` and the import libraries from `/usr/x86_64-w64-mingw32/lib`, and `libgcc`/`libgcc_eh` from the **`*-win32`** gcc directory. A `*-posix` directory sits next to it with different `libgcc` files, so the scripts select `-win32` explicitly.
+The Windows sysroot is `dist/lib/rustlib/x86_64-pc-windows-gnu/lib/` (it contains `rsbegin.o`, `rsend.o` and the `.rlib`/`.rmeta` pairs). The `gnullvm` target has no `rsbegin.o`/`rsend.o`: its only self-contained object is `crt2.o`, and it links `-lmingw32 -lmingwex -lmsvcrt -lkernel32 -luser32` plus `libunwind.a` (from the target spec; `-m arm64pe` comes from it too). The MinGW runtime comes from Debian's `gcc-mingw-w64-x86-64`: `crt2.o` and the import libraries from `/usr/x86_64-w64-mingw32/lib`, and `libgcc`/`libgcc_eh` from the **`*-win32`** gcc directory. A `*-posix` directory sits next to it with different `libgcc` files, so the scripts select `-win32` explicitly.
 
 ### For the RAD designer
 
@@ -79,14 +82,14 @@ The Windows sysroot is `dist/lib/rustlib/x86_64-pc-windows-gnu/lib/` (it contain
 scripts/assemble-designer-toolchain.sh DEST    # e.g. <rad>/crates/rad-designer/native-toolchain
 ```
 
-produces the directory the designer's native pipeline downloads (for both targets by default, or pass the triples you want after `DEST`):
+produces the directory the designer's native pipeline downloads (for the two `-gnu` targets by default; pass the triples you want after `DEST`, e.g. add `aarch64-pc-windows-gnullvm`):
 
 ```
 rustc_opt.wasm                    the compiler (rustc-main.wasm under the name the pipeline expects), shared
 <triple>/crt2.o                   MinGW C runtime start-up object
-<triple>/mingw-libs/*.a           import libraries + libgcc, with index.json (JSON array of stems)
+<triple>/mingw-libs/*.a           import libraries + libgcc (libunwind for gnullvm), with index.json (JSON array of stems)
 <triple>/sysroot/*.rlib *.rmeta   the target's standard library, rustc's hash suffix removed
-<triple>/sysroot/rsbegin.o rsend.o
+<triple>/sysroot/rsbegin.o rsend.o   (not for gnullvm)
 <triple>/sysroot/index.json       JSON array of rlib stems
 ```
 
@@ -111,6 +114,8 @@ Commits on `rust-lang/rust` `main` (most are gated to WASI hosts or to `cfg(targ
 
 ## Gotchas
 
+- **Build all the Windows targets' standard libraries in one command.** `x.py build --stage 1 library --target A` leaves only `A` in the stage1 sysroot and drops an earlier target built that way. Use one comma-separated list, e.g. `--target x86_64-pc-windows-gnu,i686-pc-windows-gnu,aarch64-pc-windows-gnullvm` (repeating `--target` is rejected), or let `x.py install` put them all in `dist/`.
+- **ARM64 libraries are found empirically.** The 15 import libraries in the ARM64 toolchain directory are what linking the all-controls demo needed (`lld` reported each missing `-l` in turn); a program using other Windows APIs may need more. `libucrt.a` and `libmsvcrt.a` are the same file in llvm-mingw's UCRT flavour, so only `libmsvcrt` is shipped.
 - **Stale CMake cache.** After a *failed* wasm LLVM build, delete `rust-wasm/build/wasm32-wasip1-threads/llvm` before re-running. Otherwise CMake notices changed variables, re-runs without the `-D` overrides and the next build fails in unrelated ways.
 - **`WASI_SYSROOT` must be exported** when running `x.py`; without it the link picked the non-threads libc (errors about `mman.o` and `errno` TLS).
 - **`llvm-tools = false`** is required in `bootstrap.toml`; otherwise stage2 assembly panics copying LLVM tools.

@@ -16,7 +16,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$here/env.sh"
 
 gen_config() {
-  sed "s|@WASI_SDK@|$WASI_SDK|g" "$here/../config/bootstrap.toml.in"
+  sed -e "s|@WASI_SDK@|$WASI_SDK|g" -e "s|@LLVM_MINGW@|$LLVM_MINGW|g" "$here/../config/bootstrap.toml.in"
 }
 
 if [ "${1:-}" = "config" ]; then gen_config; exit 0; fi
@@ -39,6 +39,9 @@ if [ ! -x "$WASI_SDK/bin/clang" ]; then
   mv "$tmp"/wasi-sdk-* "$WASI_SDK"
   rmdir "$tmp"
 fi
+
+# llvm-mingw: the ARM64 target's MinGW runtime and C compiler.
+"$here/get-llvm-mingw.sh"
 
 # Source. The LLVM submodule (rad-rs/llvm-project, branch wasi-host-support)
 # carries the WASI-host patches; .gitmodules in the branch already points there.
