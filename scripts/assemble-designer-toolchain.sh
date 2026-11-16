@@ -5,9 +5,11 @@
 #
 #   scripts/assemble-designer-toolchain.sh DEST [TRIPLE...]
 #
-# TRIPLE defaults to x86_64-pc-windows-gnu and i686-pc-windows-gnu (the two that
-# need only apt packages); name aarch64-pc-windows-gnullvm explicitly to add ARM64
-# (it also needs scripts/get-llvm-mingw.sh and a stage1 standard library for it).
+# TRIPLE defaults to all five: x86_64-pc-windows-gnu, i686-pc-windows-gnu,
+# x86_64-pc-windows-gnullvm, i686-pc-windows-gnullvm and aarch64-pc-windows-gnullvm.
+# The *-gnullvm ones need scripts/get-llvm-mingw.sh, and every target needs its
+# standard library built (one x.py invocation with a comma-separated --target
+# list for all of them; see the README).
 #
 # Layout produced:
 #   rustc_opt.wasm            the compiler (rustc-main.wasm; shared by all targets;
@@ -28,13 +30,13 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST="${1:?usage: assemble-designer-toolchain.sh DEST [TRIPLE...]}"
 shift
 TRIPLES=("$@")
-[ "${#TRIPLES[@]}" -gt 0 ] || TRIPLES=(x86_64-pc-windows-gnu i686-pc-windows-gnu)
+[ "${#TRIPLES[@]}" -gt 0 ] || TRIPLES=(x86_64-pc-windows-gnu i686-pc-windows-gnu x86_64-pc-windows-gnullvm i686-pc-windows-gnullvm aarch64-pc-windows-gnullvm)
 need "$RUSTC_WASM"
 
 # Import libraries the pipeline mounts at /mingw-libs.
 MINGW_LIBS_GNU="advapi32 bcrypt comctl32 dbghelp gdi32 kernel32 mingw32 mingwex msvcrt ntdll pthread synchronization user32 userenv winpthread ws2_32"
-# ARM64 (llvm-mingw, UCRT): found by linking the all-controls demo with a trimmed
-# library directory and adding whatever lld reported missing. libmsvcrt.a is the
+# The three *-gnullvm targets (llvm-mingw, UCRT): found by linking the all-controls
+# demo with a trimmed library directory and adding whatever lld reported missing. libmsvcrt.a is the
 # UCRT import library there (same size as libucrt.a), and unwinding is libunwind
 # (the target's link args add -l:libunwind.a), not libgcc_eh.
 MINGW_LIBS_LLVM="advapi32 bcrypt comctl32 dbghelp gdi32 kernel32 mingw32 mingwex msvcrt ntdll synchronization unwind user32 userenv ws2_32"

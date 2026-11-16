@@ -4,7 +4,9 @@
 #
 #   scripts/test-hello.sh                              # 64-bit (PE32+)
 #   TARGET=i686-pc-windows-gnu scripts/test-hello.sh   # 32-bit (PE32)
-#   TARGET=aarch64-pc-windows-gnullvm scripts/test-hello.sh   # ARM64 (needs scripts/get-llvm-mingw.sh)
+#   TARGET=x86_64-pc-windows-gnullvm scripts/test-hello.sh    # also i686-pc-windows-gnullvm
+#   TARGET=aarch64-pc-windows-gnullvm scripts/test-hello.sh   # ARM64
+# (the *-gnullvm targets need scripts/get-llvm-mingw.sh first)
 # The produced exe is $WORK/test-hello/work/hello.exe (copy it to Windows to run it;
 # the ARM64 one needs ARM64 Windows hardware, so for that target this script only
 # checks that it links and has a well-formed ARM64 PE header).

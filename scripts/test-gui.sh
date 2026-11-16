@@ -6,6 +6,7 @@
 #
 #   RAD_CRATES=/path/to/rad/crates scripts/test-gui.sh
 #   TARGET=i686-pc-windows-gnu RAD_CRATES=... scripts/test-gui.sh   # 32-bit
+#   TARGET=x86_64-pc-windows-gnullvm RAD_CRATES=... scripts/test-gui.sh   # also i686-pc-windows-gnullvm
 #   TARGET=aarch64-pc-windows-gnullvm RAD_CRATES=... scripts/test-gui.sh   # ARM64 (link + header check only)
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

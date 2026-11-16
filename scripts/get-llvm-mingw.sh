@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Download llvm-mingw (https://github.com/mstorsjo/llvm-mingw) into $LLVM_MINGW.
-# Needed only for the ARM64 target (aarch64-pc-windows-gnullvm): it provides that
-# target's MinGW runtime (crt2.o, import libraries, libunwind) and the clang
+# Needed for the three *-windows-gnullvm targets (x86_64, i686, aarch64): it
+# provides their MinGW runtime (crt2.o, import libraries, libunwind) and the clang
 # wrappers bootstrap uses to build the standard library's C parts. We use the UCRT
-# flavour, so executables need Windows 10 or later. llvm-mingw is MIT-licensed
+# flavour, so executables built for those targets need Windows 10 or later. llvm-mingw is MIT-licensed
 # (its bundled LLVM and mingw-w64 components have their own licences, see
 # LICENSE.TXT inside the archive); nothing from it is redistributed by this repo.
 set -euo pipefail

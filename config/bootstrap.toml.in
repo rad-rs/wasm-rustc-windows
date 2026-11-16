@@ -26,7 +26,7 @@ docs = false
 extended = false
 tools = []
 host = ["wasm32-wasip1-threads"]
-target = ["x86_64-unknown-linux-gnu", "wasm32-wasip1", "x86_64-pc-windows-gnu", "i686-pc-windows-gnu", "aarch64-pc-windows-gnullvm"]
+target = ["x86_64-unknown-linux-gnu", "wasm32-wasip1", "x86_64-pc-windows-gnu", "i686-pc-windows-gnu", "x86_64-pc-windows-gnullvm", "i686-pc-windows-gnullvm", "aarch64-pc-windows-gnullvm"]
 cargo-native-static = true
 
 [install]
@@ -54,9 +54,20 @@ ar = "x86_64-w64-mingw32-ar"
 cc = "i686-w64-mingw32-gcc"
 ar = "i686-w64-mingw32-ar"
 
-# ARM64 Windows has no -gnu target in rustc; gnullvm is the MinGW flavour for it.
-# Its C compiler is llvm-mingw's clang (scripts/get-llvm-mingw.sh downloads it
+# The *-windows-gnullvm targets are the MinGW flavour with an all-LLVM runtime
+# (UCRT, LLVM libunwind); ARM64 Windows has no -gnu target in rustc at all.
+# Their C compiler is llvm-mingw's clang (scripts/get-llvm-mingw.sh downloads it
 # to the @LLVM_MINGW@ path substituted by scripts/build.sh).
+[target.x86_64-pc-windows-gnullvm]
+cc = "@LLVM_MINGW@/bin/x86_64-w64-mingw32-clang"
+cxx = "@LLVM_MINGW@/bin/x86_64-w64-mingw32-clang++"
+ar = "@LLVM_MINGW@/bin/x86_64-w64-mingw32-ar"
+
+[target.i686-pc-windows-gnullvm]
+cc = "@LLVM_MINGW@/bin/i686-w64-mingw32-clang"
+cxx = "@LLVM_MINGW@/bin/i686-w64-mingw32-clang++"
+ar = "@LLVM_MINGW@/bin/i686-w64-mingw32-ar"
+
 [target.aarch64-pc-windows-gnullvm]
 cc = "@LLVM_MINGW@/bin/aarch64-w64-mingw32-clang"
 cxx = "@LLVM_MINGW@/bin/aarch64-w64-mingw32-clang++"

@@ -8,11 +8,12 @@
 #   WASMTIME_VERSION  wasmtime used to run the compiler (default: v28.0.0; newer
 #                     releases dropped the WASI threads support the compiler needs)
 #   JOBS      parallel build jobs (default: 6; the build was tuned for ~15 GB RAM)
-#   LLVM_MINGW_VERSION  llvm-mingw release used for the ARM64 target (default: 20261104)
+#   LLVM_MINGW_VERSION  llvm-mingw release used for the *-gnullvm targets (default: 20261104)
 #   LLVM_MINGW          where that release is unpacked (default: $WORK/llvm-mingw;
 #                       scripts/get-llvm-mingw.sh downloads it)
-#   TARGET    Windows target the test/assemble scripts use: x86_64-pc-windows-gnu
-#             (default), i686-pc-windows-gnu or aarch64-pc-windows-gnullvm
+#   TARGET    Windows target the test scripts use: x86_64-pc-windows-gnu (default),
+#             i686-pc-windows-gnu, x86_64-pc-windows-gnullvm,
+#             i686-pc-windows-gnullvm or aarch64-pc-windows-gnullvm
 
 WORK="${WORK:-$HOME/wasm-rustc-build}"
 REPO="${REPO:-https://github.com/rad-rs/rust-wasm.git}"
@@ -43,9 +44,9 @@ need() {
 # Use the *-win32* gcc directory explicitly: a *-posix* one sits next to it and
 # has different libgcc/libgcc_eh, so "the first match" is not safe.
 #
-# aarch64-pc-windows-gnullvm uses llvm-mingw's aarch64-w64-mingw32/lib (UCRT,
-# LLVM libunwind, no libgcc), so MINGW_GCC is empty and there are no
-# rsbegin.o/rsend.o: the target's self-contained objects are crt2.o only.
+# The three *-windows-gnullvm targets use llvm-mingw's <arch>-w64-mingw32/lib
+# (UCRT, LLVM libunwind, no libgcc), so MINGW_GCC is empty and there are no
+# rsbegin.o/rsend.o: those targets' self-contained objects are crt2.o only.
 #
 # The standard library is looked up in the install tree (dist) first, then in
 # the stage1 sysroot, where `x.py build --stage 1 library --target TRIPLE`
@@ -59,12 +60,12 @@ select_target() {
       MINGW_LIB="/usr/$MINGW_PREFIX/lib"
       MINGW_GCC="$(ls -d "/usr/lib/gcc/$MINGW_PREFIX"/*-win32 2>/dev/null | head -1)"
       ;;
-    aarch64-pc-windows-gnullvm)
-      MINGW_LIB="$LLVM_MINGW/aarch64-w64-mingw32/lib"
+    x86_64-pc-windows-gnullvm|i686-pc-windows-gnullvm|aarch64-pc-windows-gnullvm)
+      MINGW_LIB="$LLVM_MINGW/${TARGET%%-*}-w64-mingw32/lib"
       MINGW_GCC=""
       RS_OBJECTS=0
       ;;
-    *) die "unsupported TARGET '$TARGET' (x86_64-pc-windows-gnu, i686-pc-windows-gnu or aarch64-pc-windows-gnullvm)" ;;
+    *) die "unsupported TARGET '$TARGET' (x86_64/i686-pc-windows-gnu, x86_64/i686/aarch64-pc-windows-gnullvm)" ;;
   esac
   SYSROOT=""
   for s in "$RUST_SRC/dist" "$RUST_SRC/build/x86_64-unknown-linux-gnu/stage1"; do
