@@ -1,6 +1,6 @@
 # wasm-rustc-windows
 
-Recipe for building a **WebAssembly-hosted `rustc` that compiles and links Windows executables** (`x86_64-pc-windows-gnu`) using LLD inside the compiler process, and for running it under wasmtime or in a browser.
+Recipe for building a **WebAssembly-hosted `rustc` that compiles and links Windows executables** (`x86_64-pc-windows-gnu` and `i686-pc-windows-gnu`) using LLD inside the compiler process, and for running it under wasmtime or in a browser.
 
 It builds [`rad-rs/rust-wasm`](https://github.com/rad-rs/rust-wasm), branch `wasm-host`: 11 commits on top of current `rust-lang/rust` `main` (base `5fb8a16f`, rustc 1.102.0-dev, 2026-11-16). Its LLVM submodule is [`rad-rs/llvm-project`](https://github.com/rad-rs/llvm-project), branch `wasi-host-support`. The result is used by the [RAD designer](https://github.com/rad-rs/rad), which builds Windows `.exe` files in the browser.
 
@@ -10,10 +10,11 @@ Upstream discussion: https://github.com/bjorn3/wasm-rustc/issues/1
 
 Verified (on one machine: Debian 13 on WSL2, 15 GB RAM visible to Linux, wasi-sdk 24):
 
-- The branch builds with `./x.py install`, giving a 220 MB `rustc-main.wasm` and a `dist/` sysroot that includes the `x86_64-pc-windows-gnu` standard library.
+- The branch builds with `./x.py install`, giving a 220 MB `rustc-main.wasm` and a `dist/` sysroot that includes the `x86_64-pc-windows-gnu` standard library. `i686-pc-windows-gnu` is built the same way (`bootstrap.toml.in` lists it); on the machine used here it was added later and built with `x.py build --stage 1 library --target i686-pc-windows-gnu`, so its standard library is in `build/x86_64-unknown-linux-gnu/stage1/` and not in `dist/` (the scripts look in both). That change reconfigured the wasm LLVM, and the standard-library build took about 5 minutes.
 - Run under wasmtime v28 with **default compiler flags**, it compiles and links:
   - a console hello-world: a PE32+ console exe that prints its message and exits 0 on Windows;
-  - the [rad](https://github.com/rad-rs/rad) all-controls demo (all 8 widget types): a PE32+ GUI exe that opens a window titled `All controls demo` and closes cleanly (exit 0).
+  - the [rad](https://github.com/rad-rs/rad) all-controls demo (all 8 widget types): a PE32+ GUI exe that opens a window titled `All controls demo` and closes cleanly (exit 0);
+  - the same hello-world and all-controls demo for **`i686-pc-windows-gnu`** (`TARGET=i686-pc-windows-gnu`): PE32 (Intel i386) exes that run on 64-bit Windows under WoW64. The hello-world prints its message and exits 0; the GUI demo opens `All controls demo` and closes cleanly. Linking worked with the same compiler and flags, with no compiler change.
 - The RAD designer builds an `.exe` in the browser with this compiler (about 9-10 s, against about 6 s with the older toolchain it replaced).
 - `x.py test tidy` and `x.py fmt --check` passed on the branch. The binary under test was built just before a formatting-only fixup (identical content otherwise).
 - Every script here was checked with `bash -n`; `build.sh config`, `assemble-designer-toolchain.sh`, `test-hello.sh` and `test-gui.sh` were run against the existing build (see below). The LLVM submodule commit is fetchable by SHA.
@@ -30,8 +31,10 @@ Debian/Ubuntu packages (names as on Debian 13):
 
 ```
 sudo apt-get install build-essential cmake ninja-build pkg-config python3 git curl \
-  ca-certificates libssl-dev libclang-dev xz-utils unzip gcc-mingw-w64-x86-64
+  ca-certificates libssl-dev libclang-dev xz-utils unzip gcc-mingw-w64-x86-64 gcc-mingw-w64-i686
 ```
+
+(`gcc-mingw-w64-i686` is only needed for the 32-bit target.)
 
 `x86_64-w64-mingw32-g++` is not installed by this and is not needed (bootstrap prints a harmless "compiler family detection failed" warning). Plan for about **18 GB** of disk for the build directory (the `dist/` sysroot is about 0.5 GB) and about 15 GB of RAM.
 
@@ -66,7 +69,7 @@ wasmtime run -Sthreads=y -Spreview2=n \
   -o /work/hello.exe
 ```
 
-`scripts/test-hello.sh` does exactly this and checks the result is a PE32+ executable. `RAD_CRATES=<rad>/crates scripts/test-gui.sh` builds the rad all-controls demo into a GUI exe (add `-C link-arg=--subsystem=windows`, as the script does, so it has no console window).
+`scripts/test-hello.sh` does exactly this and checks the result is a PE32+ executable. For 32-bit, run it with `TARGET=i686-pc-windows-gnu` (the check then expects PE32); `env.sh` picks the matching MinGW directories and the sysroot that holds that target's standard library. `RAD_CRATES=<rad>/crates scripts/test-gui.sh` builds the rad all-controls demo into a GUI exe (add `-C link-arg=--subsystem=windows`, as the script does, so it has no console window).
 
 The Windows sysroot is `dist/lib/rustlib/x86_64-pc-windows-gnu/lib/` (it contains `rsbegin.o`, `rsend.o` and the `.rlib`/`.rmeta` pairs). The MinGW runtime comes from Debian's `gcc-mingw-w64-x86-64`: `crt2.o` and the import libraries from `/usr/x86_64-w64-mingw32/lib`, and `libgcc`/`libgcc_eh` from the **`*-win32`** gcc directory. A `*-posix` directory sits next to it with different `libgcc` files, so the scripts select `-win32` explicitly.
 
@@ -76,7 +79,18 @@ The Windows sysroot is `dist/lib/rustlib/x86_64-pc-windows-gnu/lib/` (it contain
 scripts/assemble-designer-toolchain.sh DEST    # e.g. <rad>/crates/rad-designer/native-toolchain
 ```
 
-produces the directory the designer's native pipeline downloads: `rustc_opt.wasm` (the compiler, under the name the pipeline expects), `mingw_crt2.o`, `mingw-libs/*.a` and the standard library as `sysroot/*.rlib` + `*.rmeta` with rustc's hash suffix removed, with an `index.json` manifest in `sysroot/` and `mingw-libs/`. Verified: the output has the same 78 files as the toolchain currently used by the designer, byte for byte, except that the two `index.json` files there end in CRLF and these end in LF (same entries, same order).
+produces the directory the designer's native pipeline downloads (for both targets by default, or pass the triples you want after `DEST`):
+
+```
+rustc_opt.wasm                    the compiler (rustc-main.wasm under the name the pipeline expects), shared
+<triple>/crt2.o                   MinGW C runtime start-up object
+<triple>/mingw-libs/*.a           import libraries + libgcc, with index.json (JSON array of stems)
+<triple>/sysroot/*.rlib *.rmeta   the target's standard library, rustc's hash suffix removed
+<triple>/sysroot/rsbegin.o rsend.o
+<triple>/sysroot/index.json       JSON array of rlib stems
+```
+
+Each `.rlib` needs its `.rmeta` beside it (the rlib alone is a metadata stub). The designer's 32-bit build also needs a `rad-backend-win32` that binds `SetWindowLongPtrW`/`GetWindowLongPtrW` to `SetWindowLongW`/`GetWindowLongW` on 32-bit, because 32-bit `user32` has no `*LongPtr*` exports; that fix is in the rad repo.
 
 ## What the branch changes
 

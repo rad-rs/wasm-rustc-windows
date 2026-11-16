@@ -5,6 +5,7 @@
 # designer's in-browser pipeline does.
 #
 #   RAD_CRATES=/path/to/rad/crates scripts/test-gui.sh
+#   TARGET=i686-pc-windows-gnu RAD_CRATES=... scripts/test-gui.sh   # 32-bit
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=env.sh
@@ -33,10 +34,11 @@ cp "$here/../config/gui-main.rs" "$T/app/main.rs"
   --dir "$T/app::/work" --dir "$SYSROOT::/sysroot" --dir "$T/mingw::/mingw" \
   --env RUST_MIN_STACK=16777216 --env RUSTC_BOOTSTRAP=1 \
   "$RUSTC_WASM" /work/main.rs --crate-name app --crate-type bin --edition 2021 \
-  --target x86_64-pc-windows-gnu --sysroot /sysroot \
+  --target "$TARGET" --sysroot /sysroot \
   --color never --error-format short \
   -C linker-flavor=ld.lld -C link-arg=/mingw/crt2.o -C link-arg=-L/mingw \
   -C link-arg=--subsystem=windows -o /work/out.exe
 
 file "$T/app/out.exe" | tee "$T/file.txt"
-grep -q 'PE32+ executable.*(GUI)' "$T/file.txt" && echo "OK: $T/app/out.exe"
+case "$TARGET" in i686*) want='PE32 executable.*(GUI)' ;; *) want='PE32+ executable.*(GUI)' ;; esac
+grep -q "$want" "$T/file.txt" && echo "OK: $T/app/out.exe"

@@ -26,7 +26,7 @@ docs = false
 extended = false
 tools = []
 host = ["wasm32-wasip1-threads"]
-target = ["x86_64-unknown-linux-gnu", "wasm32-wasip1", "x86_64-pc-windows-gnu"]
+target = ["x86_64-unknown-linux-gnu", "wasm32-wasip1", "x86_64-pc-windows-gnu", "i686-pc-windows-gnu"]
 cargo-native-static = true
 
 [install]
@@ -49,3 +49,7 @@ cc = "gcc"
 [target.x86_64-pc-windows-gnu]
 cc = "x86_64-w64-mingw32-gcc"
 ar = "x86_64-w64-mingw32-ar"
+
+[target.i686-pc-windows-gnu]
+cc = "i686-w64-mingw32-gcc"
+ar = "i686-w64-mingw32-ar"
