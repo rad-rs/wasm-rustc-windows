@@ -1,0 +1,51 @@
+# Template for the bootstrap config; scripts/build.sh fills in the wasi-sdk location.
+# Includes one of the default files in src/bootstrap/defaults
+profile = "compiler"
+change-id = "ignore"
+
+[rust]
+codegen-backends = ["llvm"]
+deny-warnings = false
+llvm-bitcode-linker = false
+debug = false
+debuginfo-level = 0
+# The wasm LLVM is built without its tools, so bootstrap must not try to
+# copy them into the stage2 sysroot (it panics on llvm-cov.wasm etc. otherwise).
+llvm-tools = false
+
+[llvm]
+static-libstdcpp = true
+ninja = false
+download-ci-llvm = false
+link-shared = false
+targets = "AArch64;X86;ARM;LoongArch;PowerPC;RISCV;SystemZ;NVPTX;Sparc;WebAssembly"
+experimental-targets = ""
+
+[build]
+docs = false
+extended = false
+tools = []
+host = ["wasm32-wasip1-threads"]
+target = ["x86_64-unknown-linux-gnu", "wasm32-wasip1", "x86_64-pc-windows-gnu"]
+cargo-native-static = true
+
+[install]
+prefix = "dist"
+sysconfdir = "etc"
+
+[target.'wasm32-wasip1']
+wasi-root = "@WASI_SDK@/share/wasi-sysroot"
+linker = "@WASI_SDK@/bin/clang"
+codegen-backends = ["llvm"]
+
+[target.'wasm32-wasip1-threads']
+wasi-root = "@WASI_SDK@/share/wasi-sysroot"
+linker = "@WASI_SDK@/bin/clang"
+codegen-backends = ["llvm"]
+
+[target.'x86_64-unknown-linux-gnu']
+cc = "gcc"
+
+[target.x86_64-pc-windows-gnu]
+cc = "x86_64-w64-mingw32-gcc"
+ar = "x86_64-w64-mingw32-ar"
