@@ -12,13 +12,22 @@ debuginfo-level = 0
 # The wasm LLVM is built without its tools, so bootstrap must not try to
 # copy them into the stage2 sysroot (it panics on llvm-cov.wasm etc. otherwise).
 llvm-tools = false
+# Strip debug info from the compiler (smaller wasm).
+strip = true
 
 [llvm]
 static-libstdcpp = true
 ninja = false
 download-ci-llvm = false
 link-shared = false
-targets = "AArch64;X86;ARM;LoongArch;PowerPC;RISCV;SystemZ;NVPTX;Sparc;WebAssembly"
+# X86 covers x86_64 and i686, AArch64 covers ARM64 Windows; those are the targets we
+# compile *for*. WebAssembly must stay: the native stage1 rustc cross-builds the wasm
+# host's std and rustc, and without that backend the build fails with
+# "Unknown command line argument '-wasm-enable-eh'". Dropping the other seven backends
+# (ARM, LoongArch, PowerPC, RISC-V, SystemZ, NVPTX, Sparc) is what shrinks the compiler.
+# Bootstrap's "LLVM finished" stamp does not track this list: after changing it, delete
+# build/*/llvm and the stage1*/stage2* build dirs (see README, Gotchas).
+targets = "AArch64;X86;WebAssembly"
 experimental-targets = ""
 
 [build]
@@ -26,7 +35,7 @@ docs = false
 extended = false
 tools = []
 host = ["wasm32-wasip1-threads"]
-target = ["x86_64-unknown-linux-gnu", "wasm32-wasip1", "x86_64-pc-windows-gnu", "i686-pc-windows-gnu", "x86_64-pc-windows-gnullvm", "i686-pc-windows-gnullvm", "aarch64-pc-windows-gnullvm"]
+target = ["x86_64-unknown-linux-gnu", "wasm32-wasip1", "x86_64-pc-windows-gnullvm", "i686-pc-windows-gnullvm", "aarch64-pc-windows-gnullvm"]
 cargo-native-static = true
 
 [install]
@@ -46,17 +55,9 @@ codegen-backends = ["llvm"]
 [target.'x86_64-unknown-linux-gnu']
 cc = "gcc"
 
-[target.x86_64-pc-windows-gnu]
-cc = "x86_64-w64-mingw32-gcc"
-ar = "x86_64-w64-mingw32-ar"
-
-[target.i686-pc-windows-gnu]
-cc = "i686-w64-mingw32-gcc"
-ar = "i686-w64-mingw32-ar"
-
 # The *-windows-gnullvm targets are the MinGW flavour with an all-LLVM runtime
 # (UCRT, LLVM libunwind); ARM64 Windows has no -gnu target in rustc at all.
-# Their C compiler is llvm-mingw's clang (scripts/get-llvm-mingw.sh downloads it
+# Only these three are supported. Their C compiler is llvm-mingw's clang (scripts/get-llvm-mingw.sh downloads it
 # to the @LLVM_MINGW@ path substituted by scripts/build.sh).
 [target.x86_64-pc-windows-gnullvm]
 cc = "@LLVM_MINGW@/bin/x86_64-w64-mingw32-clang"

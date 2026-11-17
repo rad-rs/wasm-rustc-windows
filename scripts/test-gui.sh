@@ -5,21 +5,19 @@
 # designer's in-browser pipeline does.
 #
 #   RAD_CRATES=/path/to/rad/crates scripts/test-gui.sh
-#   TARGET=i686-pc-windows-gnu RAD_CRATES=... scripts/test-gui.sh   # 32-bit
-#   TARGET=x86_64-pc-windows-gnullvm RAD_CRATES=... scripts/test-gui.sh   # also i686-pc-windows-gnullvm
+#   TARGET=i686-pc-windows-gnullvm RAD_CRATES=... scripts/test-gui.sh   # x86 (x64 is the default)
 #   TARGET=aarch64-pc-windows-gnullvm RAD_CRATES=... scripts/test-gui.sh   # ARM64 (link + header check only)
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=env.sh
 . "$here/env.sh"
+need_std
 CR="${RAD_CRATES:?set RAD_CRATES to the crates/ directory of a rad-rs/rad checkout}"
 need "$RUSTC_WASM" "$WINLIB" "$WASMTIME" "$CR/rad-core/src/lib.rs" "$CR/rad-demo/src/form1.rs" "$MINGW_LIB/crt2.o"
-[ -z "$MINGW_GCC" ] || need "$MINGW_GCC/libgcc_eh.a"
 
 T="$WORK/test-gui"
 rm -rf "$T"; mkdir -p "$T/app/rad_core" "$T/mingw"
 cp "$MINGW_LIB"/*.a "$MINGW_LIB/crt2.o" "$T/mingw/"
-[ -z "$MINGW_GCC" ] || cp "$MINGW_GCC"/*.a "$T/mingw/"
 
 # Mount tree: rad_core.rs + rad_core/*.rs ("crate::" gains one segment as a
 # submodule), the Win32 backend and the form as siblings of main.rs.
