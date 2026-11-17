@@ -2,7 +2,7 @@
 # the environment; nothing here is specific to one machine.
 #
 #   WORK      where everything is cloned/built/downloaded (default: ~/wasm-rustc-build)
-#   REPO      git URL of the compiler fork            (default: rad-rs/rust-wasm)
+#   REPO      git URL of the compiler fork            (default: rad-rs/rust-wasi)
 #   BRANCH    branch to build                         (default: wasm-host)
 #   WASI_SDK_VERSION  wasi-sdk major version          (default: 24)
 #   WASMTIME_VERSION  wasmtime used to run the compiler (default: v28.0.0; newer
@@ -17,14 +17,14 @@
 #             i686-pc-windows-gnullvm or aarch64-pc-windows-gnullvm
 
 WORK="${WORK:-$HOME/wasm-rustc-build}"
-REPO="${REPO:-https://github.com/rad-rs/rust-wasm.git}"
+REPO="${REPO:-https://github.com/rad-rs/rust-wasi.git}"
 BRANCH="${BRANCH:-wasm-host}"
 WASI_SDK_VERSION="${WASI_SDK_VERSION:-24}"
 WASMTIME_VERSION="${WASMTIME_VERSION:-v28.0.0}"
 LLVM_MINGW_VERSION="${LLVM_MINGW_VERSION:-20261104}"
 JOBS="${JOBS:-6}"
 
-RUST_SRC="$WORK/rust-wasm"
+RUST_SRC="${RUST_SRC:-$WORK/rust-wasi}"   # override for an existing checkout, e.g. one still named rust-wasm
 WASI_SDK="$WORK/wasi-sdk"
 WASMTIME="${WASMTIME:-$WORK/wasmtime/wasmtime}"
 LLVM_MINGW="${LLVM_MINGW:-$WORK/llvm-mingw}"

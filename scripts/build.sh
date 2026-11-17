@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Clone and build the wasm-hosted rustc (rad-rs/rust-wasm, branch wasm-host).
+# Clone and build the wasm-hosted rustc (rad-rs/rust-wasi, branch wasm-host).
 #
 #   scripts/build.sh          clone (if needed), configure, build + install
 #   scripts/build.sh config   only print the generated bootstrap.toml
@@ -8,7 +8,7 @@
 # minutes at -j6, and later rustc rebuilds ~10-14 minutes). It needs the
 # packages listed in the README. It is safe to re-run: clones and downloads
 # are skipped when present. After a FAILED LLVM build, delete
-# $WORK/rust-wasm/build/wasm32-wasip1-threads/llvm before re-running (see
+# $WORK/rust-wasi/build/wasm32-wasip1-threads/llvm before re-running (see
 # "Gotchas" in the README).
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,7 +43,7 @@ fi
 # llvm-mingw: the ARM64 target's MinGW runtime and C compiler.
 "$here/get-llvm-mingw.sh"
 
-# Source. The LLVM submodule (rad-rs/rustc-llvm-wasi, branch wasi-host/23.1)
+# Source. The LLVM submodule (rad-rs/rust-llvm-wasi, branch wasi-host/23.1)
 # carries the WASI-host patches; .gitmodules in the branch already points there.
 if [ ! -d "$RUST_SRC/.git" ]; then
   git clone --filter=blob:none --single-branch --branch "$BRANCH" "$REPO" "$RUST_SRC"

@@ -2,7 +2,7 @@
 
 Recipe for building a **WebAssembly-hosted `rustc` that compiles and links Windows executables** (x64 `x86_64-pc-windows-gnullvm`, x86 `i686-pc-windows-gnullvm` and ARM64 `aarch64-pc-windows-gnullvm`) using LLD inside the compiler process, and for running it under wasmtime or in a browser.
 
-It builds [`rad-rs/rust-wasm`](https://github.com/rad-rs/rust-wasm), branch `wasm-host`: 12 commits on top of current `rust-lang/rust` `main` (base `5fb8a16f`, rustc 1.102.0-dev, 2026-11-16). Its LLVM submodule points at [`rad-rs/rustc-llvm-wasi`](https://github.com/rad-rs/rustc-llvm-wasi), branch `wasi-host/23.1`, commit `ce55eea86bafdccd20c3b55fcec0ddf963019a67`. That LLVM branch has exactly two commits on rustc's LLVM base `0a5579eb649d`: (a) YoWASP's WASI-host patch, authored by Catherine and kept under her authorship (applied from [commit `a8982d303c`](https://codeberg.org/YoWASP/llvm-project/commit/a8982d303c) on their `llvmorg-22.1.6+wasm` branch), and (b) "Adapt the WASI-host patch to LLVM 23.1". The result is used by the [RAD designer](https://github.com/rad-rs/rad), which builds Windows `.exe` files in the browser.
+It builds [`rad-rs/rust-wasi`](https://github.com/rad-rs/rust-wasi), branch `wasm-host`: 13 commits on top of current `rust-lang/rust` `main` (base `5fb8a16f`, rustc 1.102.0-dev, 2026-11-16). Its LLVM submodule points at [`rad-rs/rust-llvm-wasi`](https://github.com/rad-rs/rust-llvm-wasi), branch `wasi-host/23.1`, commit `ce55eea86bafdccd20c3b55fcec0ddf963019a67`. That LLVM branch has exactly two commits on rustc's LLVM base `0a5579eb649d`: (a) YoWASP's WASI-host patch, authored by Catherine and kept under her authorship (applied from [commit `a8982d303c`](https://codeberg.org/YoWASP/llvm-project/commit/a8982d303c) on their `llvmorg-22.1.6+wasm` branch), and (b) "Adapt the WASI-host patch to LLVM 23.1". The result is used by the [RAD designer](https://github.com/rad-rs/rad), which builds Windows `.exe` files in the browser.
 
 Upstream discussion: https://github.com/bjorn3/wasm-rustc/issues/1
 
@@ -73,13 +73,13 @@ scripts/get-wasmtime.sh          # wasmtime v28, needed to run the compiler
 Everything lands under `$WORK` (default `~/wasm-rustc-build`); see `scripts/env.sh` for the settings (`WORK`, `REPO`, `BRANCH`, `JOBS`, ...). What `build.sh` does:
 
 1. installs Rust via rustup if there is no `cargo`, downloads wasi-sdk 24;
-2. clones `rad-rs/rust-wasm` branch `wasm-host` (blobless, single branch) and fetches the LLVM submodule with `--depth 1`;
+2. clones `rad-rs/rust-wasi` branch `wasm-host` (blobless, single branch) and fetches the LLVM submodule with `--depth 1`;
 3. writes `bootstrap.toml` from `config/bootstrap.toml.in` (host `wasm32-wasip1-threads`; targets `x86_64-unknown-linux-gnu`, `wasm32-wasip1` and the three `*-windows-gnullvm` triples; LLVM backends `AArch64;X86` only; `llvm-tools = false`);
 4. exports `WASI_SDK_PATH` and `WASI_SYSROOT`, sets a 1 GB stack limit and runs `./x.py install -j6 --config bootstrap.toml`.
 
 Timings measured on the build machine at `-j6`: the host LLVM took about 19 minutes, the wasm LLVM about 17, and the compiler and standard-library builds that followed about 15-25 minutes more (a first build from nothing builds the host LLVM too and takes a couple of hours in total).
 
-Output: `rust-wasm/build/x86_64-unknown-linux-gnu/stage2-rustc/wasm32-wasip1-threads/release/rustc-main.wasm` (the compiler) and `rust-wasm/dist/` (the sysroot).
+Output: `rust-wasi/build/x86_64-unknown-linux-gnu/stage2-rustc/wasm32-wasip1-threads/release/rustc-main.wasm` (the compiler) and `rust-wasi/dist/` (the sysroot).
 
 ## Run
 
@@ -165,16 +165,16 @@ Commits on `rust-lang/rust` `main` (most are gated to WASI hosts or to `cfg(targ
 - `rustc_driver`: also build an rlib so wasm hosts can link it
 - `rustc_codegen_llvm`: don't require `libloading::Library` on platforms without `dlopen`
 - `rustc_session`: no panic on a missing default sysroot on WASI; skip the output writeability check on WASI
-- `.gitmodules`: point the LLVM submodule at `rad-rs/rustc-llvm-wasi`, branch `wasi-host/23.1` (the last commit of the 12)
+- `.gitmodules`: point the LLVM submodule at `rad-rs/rust-llvm-wasi`, branch `wasi-host/23.1` (the last two commits of the 13: one moves the pointer, one follows the repository rename)
 
-**One change is not gated**: `rustc_driver` is now built as `["lib", "dylib"]` for every host (cargo cannot gate a crate type), so native builds produce one extra rlib. The LLVM patch (22 files) lives on the `wasi-host/23.1` branch of [`rad-rs/rustc-llvm-wasi`](https://github.com/rad-rs/rustc-llvm-wasi), which the submodule points at: two commits on rustc's LLVM base `0a5579eb649d`, YoWASP's patch by Catherine (authorship kept) and our "Adapt the WASI-host patch to LLVM 23.1" (the `AddSignalHandler` signature, the `posix_madvise` guard for `randomAccessImpl`, and so on).
+**One change is not gated**: `rustc_driver` is now built as `["lib", "dylib"]` for every host (cargo cannot gate a crate type), so native builds produce one extra rlib. The LLVM patch (22 files) lives on the `wasi-host/23.1` branch of [`rad-rs/rust-llvm-wasi`](https://github.com/rad-rs/rust-llvm-wasi), which the submodule points at: two commits on rustc's LLVM base `0a5579eb649d`, YoWASP's patch by Catherine (authorship kept) and our "Adapt the WASI-host patch to LLVM 23.1" (the `AddSignalHandler` signature, the `posix_madvise` guard for `randomAccessImpl`, and so on).
 
 ## Gotchas
 
 - **Build all the Windows targets' standard libraries in one command.** `x.py build --stage 1 library --target A` leaves only `A` in the stage1 sysroot and drops an earlier target built that way. Use one comma-separated list, e.g. `--target x86_64-pc-windows-gnullvm,i686-pc-windows-gnullvm,aarch64-pc-windows-gnullvm` (repeating `--target` is rejected), or let `x.py install` put them all in `dist/`.
 - **`-gnullvm` import libraries are found empirically.** The 15 import libraries in each toolchain directory (the same set for x86_64, i686 and ARM64) are what linking the all-controls demo needed (`lld` reported each missing `-l` in turn); a program using other Windows APIs may need more. `libucrt.a` and `libmsvcrt.a` are the same file in llvm-mingw's UCRT flavour, so only `libmsvcrt` is shipped.
 - **`llvm.targets` must keep `WebAssembly`**, and changing it needs a clean slate. The native stage1 rustc cross-builds the wasm host's std and rustc; without the WebAssembly backend that fails with `Unknown command line argument '-wasm-enable-eh'`. Bootstrap's "LLVM finished" stamp does not track the target list, so after changing it delete `build/x86_64-unknown-linux-gnu/llvm`, `build/wasm32-wasip1-threads/llvm` and the `stage1`, `stage1-rustc`, `stage1-std`, `stage1-tools-bin` and `stage2-rustc` build directories before rebuilding; otherwise bootstrap keeps using the old LLVM and the stage1 compiler built against it.
-- **Stale CMake cache.** After a *failed* wasm LLVM build, delete `rust-wasm/build/wasm32-wasip1-threads/llvm` before re-running. Otherwise CMake notices changed variables, re-runs without the `-D` overrides and the next build fails in unrelated ways.
+- **Stale CMake cache.** After a *failed* wasm LLVM build, delete `rust-wasi/build/wasm32-wasip1-threads/llvm` before re-running. Otherwise CMake notices changed variables, re-runs without the `-D` overrides and the next build fails in unrelated ways.
 - **`WASI_SYSROOT` must be exported** when running `x.py`; without it the link picked the non-threads libc (errors about `mman.o` and `errno` TLS).
 - **`llvm-tools = false`** is required in `bootstrap.toml`; otherwise stage2 assembly panics copying LLVM tools.
 - **wasmtime v28.** wasmtime 50 reports "`-Sthreads` flag is no longer supported". Newer releases between those were not tried.
